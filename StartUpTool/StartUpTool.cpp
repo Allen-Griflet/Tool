@@ -98,17 +98,19 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
                 CloseHandle(pi.hProcess);
                 CloseHandle(pi.hThread);
                 ShowNotification(L"StartUpTool", L"WTRTI.exe を起動しました");
-            } else {
+            }
+            else {
                 ShowNotification(L"StartUpTool", L"WTRTI.exe の起動に失敗しました");
             }
 
             launched = true;
         }
         else if (!isRunning && launched) {
-            // 終了
+            // WTRTI.exe をファイル名だけ取り出す
             std::wstring targetExe = cfg.launchExe;
             size_t pos = targetExe.find_last_of(L"\\/");
-            if (pos != std::wstring::npos) targetExe = targetExe.substr(pos + 1); // ファイル名のみ
+            if (pos != std::wstring::npos) targetExe = targetExe.substr(pos + 1);
+
             std::wstring cmd = L"taskkill /IM \"" + targetExe + L"\" /F >nul 2>&1";
             _wsystem(cmd.c_str());
             ShowNotification(L"StartUpTool", L"WTRTI.exe を終了しました");
