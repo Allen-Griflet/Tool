@@ -11,18 +11,18 @@ bool IsProcessRunning(const std::wstring& processName) {
     if (snapshot == INVALID_HANDLE_VALUE)
         return false;
 
-    PROCESSENTRY32 pe;
-    pe.dwSize = sizeof(PROCESSENTRY32);
+    PROCESSENTRY32W pe;
+    pe.dwSize = sizeof(PROCESSENTRY32W);
     bool found = false;
 
-    if (Process32First(snapshot, &pe)) {
+    if (Process32FirstW(snapshot, &pe)) {
         do {
             if (_wcsicmp(pe.szExeFile, processName.c_str()) == 0) {
                 found = true;
                 break;
             }
         } 
-        while (Process32Next(snapshot, &pe));
+        while (Process32NextW(snapshot, &pe));
     }
 
     CloseHandle(snapshot);
@@ -31,14 +31,11 @@ bool IsProcessRunning(const std::wstring& processName) {
 
 int wmain() {
     std::wstring surveillanceExe = L"aces.exe"; // 監視対象
-    std::wstring relativeLaunchPath = L"WTRTI\\WTRTI.exe"; // ← 相対パス
+    std::wstring relativeLaunchPath = L"WTRTI\\WTRTI.exe"; // 相対パス
 
-    // 実行ファイルのあるフォルダを取得
     wchar_t exePath[MAX_PATH];
     GetModuleFileNameW(NULL, exePath, MAX_PATH);
     fs::path baseDir = fs::path(exePath).parent_path();
-
-    // 相対パスを結合
     fs::path fullLaunchPath = baseDir / relativeLaunchPath;
 
     std::wcout << L"[" << surveillanceExe << L"] の起動を監視中...\n";
@@ -48,16 +45,17 @@ int wmain() {
     while (true) {
         if (IsProcessRunning(surveillanceExe)) {
             if (!launched) {
-                std::wcout << surveillanceExe << L" が起動しました！ → " 
+                std::wcout << surveillanceExe << L" が起動しました！ → "
                            << fullLaunchPath << L" を起動します。\n";
 
-                STARTUPINFO si = { sizeof(si) };
+                STARTUPINFOW si;
+                ZeroMemory(&si, sizeof(si));
+                si.cb = sizeof(si);
                 PROCESS_INFORMATION pi;
-                std::wstring cmd = fullLaunchPath.wstring(); // 書き換え可能バッファにする
+                ZeroMemory(&pi, sizeof(pi));
 
-                if (CreateProcessW(
-                    NULL, &cmd[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-                {
+                std::wstring cmd = fullLaunchPath.wstring();
+                if (CreateProcessW(NULL, &cmd[0], NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi)) {
                     std::wcout << L"WTRTI.exe を起動しました。\n";
                     CloseHandle(pi.hProcess);
                     CloseHandle(pi.hThread);
@@ -69,7 +67,7 @@ int wmain() {
 
                 launched = true;
             }
-        }
+        } 
         else {
             launched = false;
         }
