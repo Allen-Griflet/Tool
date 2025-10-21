@@ -1,55 +1,61 @@
 #include <windows.h>
+#include <tlhelp32.h>
 #include <iostream>
+#include <string>
+
+bool IsProcessRunning(const std::wstring& processName) {
+    bool found = false;
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot != INVALID_HANDLE_VALUE) {
+        PROCESSENTRY32 pe;
+        pe.dwSize = sizeof(PROCESSENTRY32);
+        if (Process32First(snapshot, &pe)) {
+            do {
+                if (_wcsicmp(pe.szExeFile, processName.c_str()) == 0) {
+                    found = true;
+                    break;
+                }
+            } while (Process32Next(snapshot, &pe));
+        }
+        CloseHandle(snapshot);
+    }
+    return found;
+}
 
 int main() {
-    STARTUPINFO si = { sizeof(si) };
-    PROCESS_INFORMATION pi;
+    std::wstring targetExe = L"FirstApp.exe";   // 監視対象のEXE名（拡張子込み）
+    std::wstring secondExe = L"C:\\Path\\To\\SecondApp.exe"; // 起動するEXE
 
-    // --- 1つ目のEXEを起動 ---
-    if (CreateProcess(
-        L"C:\\Path\\To\\FirstApp.exe",  // 1つ目のEXEのパス
-        NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
-    {
-        std::wcout << L"FirstApp.exe を起動しました。起動完了を待っています...\n";
+    std::wcout << L"[" << targetExe << L"] の起動を監視中...\n";
 
-        // GUIアプリがメッセージを処理可能になるまで待機（最大10秒）
-        DWORD waitResult = WaitForInputIdle(pi.hProcess, 10000);
+    bool launched = false;
 
-        if (waitResult == 0) {
-            std::wcout << L"FirstApp.exe の起動を確認しました。\n";
+    while (true) {
+        if (IsProcessRunning(targetExe)) {
+            if (!launched) {
+                std::wcout << targetExe << L" が起動しました！ → SecondApp.exe を起動します。\n";
 
-            // --- 2つ目のEXEを起動 ---
-            STARTUPINFO si2 = { sizeof(si2) };
-            PROCESS_INFORMATION pi2;
+                STARTUPINFO si = { sizeof(si) };
+                PROCESS_INFORMATION pi;
 
-            if (CreateProcess(
-                L"C:\\Path\\To\\SecondApp.exe",  // 2つ目のEXEのパス
-                NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si2, &pi2))
-            {
-                std::wcout << L"SecondApp.exe を起動しました。\n";
-                CloseHandle(pi2.hProcess);
-                CloseHandle(pi2.hThread);
+                if (CreateProcess(
+                    secondExe.c_str(), NULL, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+                {
+                    std::wcout << L"SecondApp.exe を起動しました。\n";
+                    CloseHandle(pi.hProcess);
+                    CloseHandle(pi.hThread);
+                } else {
+                    std::wcerr << L"SecondApp.exe の起動に失敗しました。(エラー: " 
+                               << GetLastError() << L")\n";
+                }
+
+                launched = true;
             }
-            else {
-                std::wcerr << L"SecondApp.exe の起動に失敗しました。(エラーコード: " 
-                           << GetLastError() << L")\n";
-            }
-        }
-        else if (waitResult == WAIT_TIMEOUT) {
-            std::wcerr << L"FirstApp.exe が10秒以内に起動しませんでした。\n";
-        }
-        else {
-            std::wcerr << L"FirstApp.exe の起動確認中にエラーが発生しました。(コード: " 
-                       << GetLastError() << L")\n";
+        } else {
+            launched = false; // プロセスが終了したら再度監視に戻る
         }
 
-        // ハンドルを閉じる
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-    }
-    else {
-        std::wcerr << L"FirstApp.exe の起動に失敗しました。(エラーコード: " 
-                   << GetLastError() << L")\n";
+        Sleep(1000); // 1秒ごとにチェック
     }
 
     return 0;
