@@ -21,7 +21,8 @@ bool IsProcessRunning(const std::wstring& processName) {
                 found = true;
                 break;
             }
-        } while (Process32Next(snapshot, &pe));
+        } 
+        while (Process32Next(snapshot, &pe));
     }
 
     CloseHandle(snapshot);
@@ -60,14 +61,16 @@ int wmain() {
                     std::wcout << L"WTRTI.exe を起動しました。\n";
                     CloseHandle(pi.hProcess);
                     CloseHandle(pi.hThread);
-                } else {
+                } 
+                else {
                     std::wcerr << L"WTRTI.exe の起動に失敗しました。(エラー: "
                                << GetLastError() << L")\n";
                 }
 
                 launched = true;
             }
-        } else {
+        }
+        else {
             launched = false;
         }
 
