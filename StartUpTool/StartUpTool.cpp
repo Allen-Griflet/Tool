@@ -87,8 +87,7 @@ bool IsProcessRunning(const std::wstring& processName) {
                 found = true;
                 break;
             }
-        }
-        while (Process32Next(snapshot, &pe));
+        } while (Process32Next(snapshot, &pe));
     }
 
     CloseHandle(snapshot);
@@ -113,8 +112,7 @@ void KillProcessByName(const std::wstring& processName) {
                     CloseHandle(hProcess);
                 }
             }
-        }
-        while (Process32Next(snapshot, &pe));
+        } while (Process32Next(snapshot, &pe));
     }
 
     CloseHandle(snapshot);
