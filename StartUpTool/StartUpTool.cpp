@@ -1,3 +1,7 @@
+#define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+#pragma comment(lib, "user32.lib")
+#pragma comment(lib, "shell32.lib")
+
 #include <windows.h>
 #include <tlhelp32.h>
 #include <shellapi.h>
@@ -5,13 +9,12 @@
 #include <fstream>
 #include <locale>
 #include <codecvt>
-#include <iostream>
 
 // ---------------------- 設定ファイル読み込み ----------------------
 struct Config {
     std::wstring watchExe;
     std::wstring launchExe;
-    int interval = 1000;
+    int interval = 1000; // デフォルト1秒
 };
 
 Config LoadConfig(const std::wstring& path) {
@@ -26,8 +29,10 @@ Config LoadConfig(const std::wstring& path) {
         if (line.empty() || line[0] == L'#' || line[0] == L';') continue;
         size_t eq = line.find(L'=');
         if (eq == std::wstring::npos) continue;
+
         std::wstring key = line.substr(0, eq);
         std::wstring value = line.substr(eq + 1);
+
         if (key == L"watch") cfg.watchExe = value;
         else if (key == L"launch") cfg.launchExe = value;
         else if (key == L"interval") cfg.interval = std::stoi(value);
@@ -56,27 +61,31 @@ bool IsProcessRunning(const std::wstring& processName) {
     return found;
 }
 
-// ---------------------- タスクトレイ通知 ----------------------
+// ---------------------- 通知 ----------------------
 void ShowNotification(const std::wstring& title, const std::wstring& msg) {
     NOTIFYICONDATA nid = {};
     nid.cbSize = sizeof(nid);
-    nid.hWnd = NULL; // コンソールなしでも動作
+    nid.hWnd = NULL;
     nid.uID = 1;
     nid.uFlags = NIF_INFO;
     wcscpy_s(nid.szInfo, msg.c_str());
     wcscpy_s(nid.szInfoTitle, title.c_str());
     nid.dwInfoFlags = NIIF_INFO;
+
     Shell_NotifyIconW(NIM_ADD, &nid);
     Shell_NotifyIconW(NIM_DELETE, &nid);
 }
 
 // ---------------------- メイン ----------------------
 int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
-
-    // 設定ファイル読み込み
     Config cfg = LoadConfig(L"config.ini");
     if (cfg.watchExe.empty() || cfg.launchExe.empty()) {
-        MessageBoxW(NULL, L"config.ini が見つからないか、watch または launch が未設定です。", L"StartUpTool", MB_ICONERROR);
+        MessageBoxW(
+            NULL,
+            L"config.ini が見つからないか、watch または launch が未設定です。",
+            L"StartUpTool",
+            MB_ICONERROR
+        );
         return 1;
     }
 
@@ -85,11 +94,12 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     while (true) {
         bool isRunning = IsProcessRunning(cfg.watchExe);
 
+        // 起動処理
         if (isRunning && !launched) {
-            // 起動
             STARTUPINFOW si;
             ZeroMemory(&si, sizeof(si));
             si.cb = sizeof(si);
+
             PROCESS_INFORMATION pi;
             ZeroMemory(&pi, sizeof(pi));
 
@@ -102,17 +112,17 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
             else {
                 ShowNotification(L"StartUpTool", L"WTRTI.exe の起動に失敗しました");
             }
-
             launched = true;
         }
+        // 終了処理
         else if (!isRunning && launched) {
-            // WTRTI.exe をファイル名だけ取り出す
             std::wstring targetExe = cfg.launchExe;
             size_t pos = targetExe.find_last_of(L"\\/");
             if (pos != std::wstring::npos) targetExe = targetExe.substr(pos + 1);
 
             std::wstring cmd = L"taskkill /IM \"" + targetExe + L"\" /F >nul 2>&1";
             _wsystem(cmd.c_str());
+
             ShowNotification(L"StartUpTool", L"WTRTI.exe を終了しました");
             launched = false;
         }
